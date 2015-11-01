@@ -1,0 +1,12 @@
+APScheduler
+Flask
+Flask-Mail
+Flask-SQLAlchemy
+Flask-Session
+SQLAlchemy
+passlib
+bcrypt
+six
+itsdangerous
+requests
+PyMySQL
