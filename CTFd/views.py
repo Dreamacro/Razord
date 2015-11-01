@@ -1,6 +1,6 @@
 from flask import current_app as app, render_template, render_template_string, request, redirect, abort, jsonify, json as json_mod, url_for, session, Blueprint, Response
 from CTFd.utils import authed, ip2long, long2ip, is_setup, validate_url, get_config, sha512
-from CTFd.models import db, Teams, Solves, Challenges, Keys, Tags, Files, Tracking, Pages, Config
+from CTFd.models import db, Teams, Solves, Challenges, Keys, Tags, Files, Tracking, Pages, Config, Keys, Gameboxs, Rounds
 
 from jinja2.exceptions import TemplateNotFound
 from passlib.hash import bcrypt_sha256
@@ -11,7 +11,6 @@ import os
 import re
 import sys
 import json
-import os
 
 views = Blueprint('views', __name__)
 
@@ -221,3 +220,45 @@ def profile():
                                    country=country, prevent_name_change=prevent_name_change)
     else:
         return redirect('/login')
+
+
+# init testdb
+@views.route('/init_db', methods=['GET'])
+def test_init_db():
+    chal_sum = 4
+    team_sum = 10
+    round_sum = 10
+
+    # add rounds
+    for i in range(1, round_sum + 1):
+        r = Rounds()
+        db.session.add(r)
+    db.session.commit()
+
+    # add chals
+    for i in range(1, chal_sum + 1):
+        chal = Challenges('char{0}'.format(i),
+                          'testdesc',
+                          100,
+                          'PWN',
+                          'unusedFLAG')
+        db.session.add(chal)
+    db.session.commit()
+
+    # add teams, gameboxs, keys
+    # teamid 1 is admin
+    for i in range(1, team_sum + 1):
+        t = Teams('team{0}'.format(i),
+                  'team{0}@test.com'.format(i),
+                  'test')
+        db.session.add(t)
+        for chal in range(1, chal_sum + 1):
+            g = Gameboxs(chal, i + 1, '192.168.1{0}.{1}'.format(i, chal))
+            db.session.add(g)
+            for r in range(1, round_sum + 1):
+                ran_flag = ''.join(map(lambda xx:(hex(ord(xx))[2:]),os.urandom(32)))
+                k = Keys(chal, ran_flag, 0, (i - 1) * chal_sum + chal, r)
+                db.session.add(k)
+    db.session.commit()
+
+    return '1'

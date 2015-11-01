@@ -282,3 +282,6 @@ def validate_url(url):
 def sha512(string):
     return hashlib.sha512(string).hexdigest()
 
+
+def get_current_round():
+    return 1

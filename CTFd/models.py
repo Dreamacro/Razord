@@ -150,17 +150,17 @@ class Rounds(db.Model):
 # 原版里没有用到这个结构
 class Keys(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chal = db.Column(db.Integer, db.ForeignKey('challenges.id'))
+    chalid = db.Column(db.Integer, db.ForeignKey('challenges.id'))
     key_type = db.Column(db.Integer)
     flag = db.Column(db.Text, index=True)
-    gamebox = db.Column(db.Integer, db.ForeignKey('gameboxs.id'), index=True)
+    gameboxid = db.Column(db.Integer, db.ForeignKey('gameboxs.id'), index=True)
     round = db.Column(db.Integer, db.ForeignKey('rounds.round'), index=True)
 
     def __init__(self, chal, flag, key_type, gamebox, round):
-        self.chal = chal
+        self.chalid = chal
         self.flag = flag
         self.key_type = key_type
-        self.gamebox = gamebox
+        self.gameboxid = gamebox
         self.round = round
 
     def __repr__(self):
@@ -172,18 +172,19 @@ class Solves(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chalid = db.Column(db.Integer, db.ForeignKey('challenges.id'), index=True)
     teamid = db.Column(db.Integer, db.ForeignKey('teams.id'), index=True)
-    keyid = db.Column(db.Integer, db.ForeignKey('keys.id'))
+    keyid = db.Column(db.Integer, db.ForeignKey('keys.id'), index=True)
+    round = db.Column(db.Integer, db.ForeignKey('rounds.round'), index=True)
     ip = db.Column(db.Integer)
     date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     team = db.relationship('Teams', foreign_keys="Solves.teamid", lazy='joined')
-    key = db.relationship('Keys', foreign_keys="Solves.keyid", lazy='joined')
     chal = db.relationship('Challenges', foreign_keys="Solves.chalid", lazy='joined')
     # value = db.Column(db.Integer)
 
-    def __init__(self, keyid, teamid, ip):
+    def __init__(self, keyid, teamid, chalid, roundid, ip):
         self.ip = ip2long(ip)
         self.keyid = keyid
         self.teamid = teamid
+        self.roundid = roundid
         # self.value = value
 
     def __repr__(self):

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 from flask import current_app as app, render_template, request, redirect, abort, jsonify, json as json_mod, url_for, session, Blueprint
 
-from CTFd.utils import ctftime, view_after_ctf, authed, unix_time, get_kpm, can_view_challenges, is_admin, get_config
-from CTFd.models import db, Challenges, Files, Solves, WrongKeys, Keys, Gameboxs, Rounds
+from CTFd.utils import ctftime, view_after_ctf, authed, unix_time, get_kpm, can_view_challenges, is_admin, get_config, get_current_round
+from CTFd.models import db, Challenges, Files, Solves, WrongKeys, Keys, Gameboxs, Rounds, Teams
 
 import time
 import re
@@ -112,47 +112,39 @@ def who_solved(chalid):
     return jsonify(json)
 
 
-# init testdb
-@challenges.route('/testinit', methods=['GET'])
-def ttestinit():
-    chal = Challenges('chal1', 'desc', 100, 'RE', 'noflag')
-    gamebox = Gameboxs(1, 1, '192.168.1.10')
-    round = Rounds()
-    key = Keys(1, 'nooflag', 0, 1, 1)
-    db.session.add(chal)
-    db.session.add(gamebox)
-    db.session.add(key)
-    db.session.add(round)
-    db.session.commit()
-
-    return '1'
-
-
 # 统一了flag的提交接口
 @challenges.route('/submit_flag', methods=['POST'])
 def submit_flag():
     result = {}
+    cur_round = get_current_round()
     if not ctftime():
         return redirect('/challenges')
     if authed():
         submitkey = str(request.form['key'].strip().lower())
         teamid = session['id']
         request_ip = request.remote_addr
-        querykey = Keys.query.filter_by(flag=submitkey).first()
+        querykey = Keys.query.filter_by(flag=submitkey, round=cur_round).first()
         if querykey:
-            # Right key
-            querysolve = Solves.query.filter_by(keyid=querykey.id, teamid=teamid).first()
-            if querysolve:
-                # Already submitted
+            # Right flag
+            if Gameboxs.query.filter_by(id=querykey.gameboxid).first().teamid == teamid:
+                # Self flag
                 result['status'] = 2
-                result['msg'] = 'Already submitted'
+                result['msg'] = 'Self flag'
             else:
-                newsolve = Solves(querykey.id, teamid, request_ip)
-                db.session.add(newsolve)
-                db.session.commit()
-                result['status'] = 1
-                result['msg'] = 'Right Flag'
+                querysolve = Solves.query.filter_by(keyid=querykey.id, teamid=teamid).first()
+                if querysolve:
+                    # Already submitted
+                    result['status'] = 2
+                    result['msg'] = 'Already submitted'
+                else:
+                    # Right flag
+                    newsolve = Solves(querykey.id, teamid, querykey.chalid ,querykey.round, request_ip)
+                    db.session.add(newsolve)
+                    db.session.commit()
+                    result['status'] = 1
+                    result['msg'] = 'Right Flag'
         else:
+            # Wrong flag
             result['status'] = 0
             result['msg'] = 'Wrong Flag'
     else:

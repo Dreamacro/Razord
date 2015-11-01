@@ -48,3 +48,9 @@ def topteams(count):
             json['scores'][team.name].append({'id':x.teamid, 'chal':x.chalid, 'team':x.teamid, 'value': x.chal.value, 'time':unix_time(x.date)})
 
     return jsonify(json)
+
+
+@scoreboard.route('/round/<round>')
+def getround(round):
+    solves = Solves.query.filter_by(round)
+    return '1'
