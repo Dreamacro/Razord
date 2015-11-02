@@ -9,6 +9,10 @@ PERMANENT_SESSION_LIFETIME = 604800 # 7 days in seconds
 HOST = "localhost"
 UPLOAD_FOLDER = os.path.normpath('static/uploads')
 
+CHECK_SCORE = 20
+ATTACK_SCORE = 20
+DEFAULT_SCORE = 5000
+
 ##### EMAIL (Mailgun and non-Mailgun) #####
 
 # The first address will be used as the from address of messages sent from CTFd

@@ -1,6 +1,7 @@
 #!/usr/bin/python2.7
 # -*- coding: utf-8 -*-
 from flask.ext.sqlalchemy import SQLAlchemy
+from CTFd.config import DEFAULT_SCORE
 
 from socket import inet_aton, inet_ntoa
 from struct import unpack, pack
@@ -47,12 +48,13 @@ class Challenges(db.Model):
     flags = db.Column(db.Text)
     hidden = db.Column(db.Boolean)
 
-    def __init__(self, name, description, value, category, flags):
+    def __init__(self, name, description, value, category, flags, hidden=False):
         self.name = name
         self.description = description
         self.value = value
         self.category = category
         self.flags = json.dumps(flags)
+        self.hidden = hidden
 
     def __repr__(self):
         return '<chal %r>' % self.name
@@ -86,15 +88,16 @@ class Files(db.Model):
 
 class Teams(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(128), unique=True)
-    email = db.Column(db.String(128), unique=True)
+    name = db.Column(db.String(128), unique=True, index=True)
+    email = db.Column(db.String(128), unique=True, index=True)
     password = db.Column(db.String(128))
     website = db.Column(db.String(128))
     affiliation = db.Column(db.String(128))
     country = db.Column(db.String(32))
     bracket = db.Column(db.String(32))
-    banned = db.Column(db.Boolean)
-    admin = db.Column(db.Boolean)
+    banned = db.Column(db.Boolean, default=False)
+    admin = db.Column(db.Boolean, default=False)
+    score = db.Column(db.Integer, default=DEFAULT_SCORE)
 
     def __init__(self, name, email, password):
         self.name = name
@@ -155,6 +158,7 @@ class Keys(db.Model):
     flag = db.Column(db.Text, index=True)
     gameboxid = db.Column(db.Integer, db.ForeignKey('gameboxs.id'), index=True)
     round = db.Column(db.Integer, db.ForeignKey('rounds.round'), index=True)
+    gamebox = db.relationship('Gameboxs', foreign_keys="Keys.gameboxid", lazy='joined')
 
     def __init__(self, chal, flag, key_type, gamebox, round):
         self.chalid = chal
@@ -172,23 +176,42 @@ class Solves(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chalid = db.Column(db.Integer, db.ForeignKey('challenges.id'), index=True)
     teamid = db.Column(db.Integer, db.ForeignKey('teams.id'), index=True)
+    # vic_teamid = db.Column(db.Integer, db.ForeignKey('teams.id'), index=True)
     keyid = db.Column(db.Integer, db.ForeignKey('keys.id'), index=True)
     round = db.Column(db.Integer, db.ForeignKey('rounds.round'), index=True)
     ip = db.Column(db.Integer)
     date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     team = db.relationship('Teams', foreign_keys="Solves.teamid", lazy='joined')
     chal = db.relationship('Challenges', foreign_keys="Solves.chalid", lazy='joined')
+    key = db.relationship('Keys', foreign_keys="Solves.keyid", lazy='joined')
     # value = db.Column(db.Integer)
 
-    def __init__(self, keyid, teamid, chalid, roundid, ip):
+    def __init__(self, keyid, teamid, chalid, round, ip):
         self.ip = ip2long(ip)
         self.keyid = keyid
         self.teamid = teamid
-        self.roundid = roundid
+        self.round = round
+        self.chalid = chalid
         # self.value = value
 
     def __repr__(self):
         return '<solves %r>' % self.chal
+
+
+class Checks(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    # status 0:OK , >0:SOMETHING WRONG
+    status = db.Column(db.Integer)
+    chalid = db.Column(db.Integer, db.ForeignKey('challenges.id'), index=True)
+    round = db.Column(db.Integer, db.ForeignKey('rounds.round'), index=True)
+    teamid = db.Column(db.Integer, db.ForeignKey('teams.id'), index=True)
+    date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    def __init__(self, teamid, chalid, roundid):
+        self.ip = ip2long(ip)
+        self.teamid = teamid
+        self.roundid = roundid
+        self.chalid = chalid
 
 
 # 不存储错误提交,弃用此结构

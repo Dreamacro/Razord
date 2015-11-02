@@ -8,7 +8,6 @@ from CTFd.models import db, Challenges, Files, Solves, WrongKeys, Keys, Gameboxs
 import time
 import re
 import logging
-import json
 
 challenges = Blueprint('challenges', __name__)
 
@@ -51,6 +50,7 @@ def chals():
         return redirect('/login')
 
 
+# 前端获取解题次数？
 @challenges.route('/chals/solves')
 def chals_per_solves():
     if can_view_challenges():
@@ -80,28 +80,6 @@ def solves(teamid=None):
     return jsonify(json)
 
 
-# 前端获取
-@challenges.route('/maxattempts')
-def attempts():
-    chals = Challenges.query.add_columns('id').all()
-    json = {'maxattempts':[]}
-    for chal, chalid in chals:
-        fails = WrongKeys.query.filter_by(team=session['id'], chalid=chalid).count()
-        if fails >= int(get_config("max_tries")) and int(get_config("max_tries")) > 0:
-            json['maxattempts'].append({'chalid':chalid})
-    return jsonify(json)
-
-
-# 前端获取答题成功失败情况
-@challenges.route('/fails/<teamid>', methods=['GET'])
-def fails(teamid):
-    fails = WrongKeys.query.filter_by(team=teamid).count()
-    solves = Solves.query.filter_by(teamid=teamid).count()
-    db.session.close()
-    json = {'fails':str(fails), 'solves': str(solves)}
-    return jsonify(json)
-
-
 # 用来显示提交该题FLAG的队伍
 @challenges.route('/chal/<chalid>/solves', methods=['GET'])
 def who_solved(chalid):
@@ -117,10 +95,12 @@ def who_solved(chalid):
 def submit_flag():
     result = {}
     cur_round = get_current_round()
+
     if not ctftime():
         return redirect('/challenges')
+
     if authed():
-        submitkey = str(request.form['key'].strip().lower())
+        submitkey = str(request.form['flag'].strip().lower())
         teamid = session['id']
         request_ip = request.remote_addr
         querykey = Keys.query.filter_by(flag=submitkey, round=cur_round).first()
@@ -150,35 +130,6 @@ def submit_flag():
     else:
         result['status'] = -1
         result['msg'] = 'Login First'
-    return json.dumps(result)
-    # solves = Solves.query.join(Keys).filter(Solves.teamid==session['id']).first()
 
-
-# 弃用此接口改用统一的提交接口
-@challenges.route('/chal/<chalid>', methods=['POST'])
-def chal(chalid):
-    if not ctftime():
-        return redirect('/challenges')
-    if authed():
-        solves = Solves.query.join(Keys).filter(Solves.teamid==session['id'], ).first()
-        # Challange not solved yet
-        if not solves:
-            chal = Challenges.query.filter_by(id=chalid).first()
-            key = str(request.form['key'].strip().lower())
-            keys = json.loads(chal.flags)
-            findkey = None#TODO Query
-            if findkey:
-                chalid = findkey.chal.id
-                solve = Solves(keyid=findkey.id, teamid=session['id'], ip=request.remote_addr)
-                db.session.add(solve)
-                db.session.commit()
-                db.session.close()
-                return "1" # key was correct
-            return '0' # key was wrong
-
-        # Challenge already solved
-        else:
-            logger.info("{0} submitted {1} with kpm {2} [ALREADY SOLVED]".format(*data))
-            return "2" # challenge was already solved
-    else:
-        return "-1"
+    db.session.close()
+    return jsonify(result)
